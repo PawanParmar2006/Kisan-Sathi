@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kisan Sathi — by NovaForce</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --soil:#1B1F16; --soil-2:#242A1E; --parchment:#F2EFE4; --parchment-dim:#C9C6B8;
+    --marigold:#E8A33D; --marigold-dim:#8A6326; --leaf:#6FA96A; --leaf-dim:#3E5C3B;
+    --clay:#C97064; --line:rgba(242,239,228,0.14);
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:var(--soil); color:var(--parchment);
+    font-family:'IBM Plex Sans','IBM Plex Sans Devanagari',sans-serif;
+    min-height:100vh;
+  }
+  .hi{ font-family:'IBM Plex Sans Devanagari','IBM Plex Sans',sans-serif; }
+  .wrap{ max-width:640px; margin:0 auto; padding:0 16px 60px; }
+
+  header{ padding:24px 0 16px; text-align:center; border-bottom:1px solid var(--line); margin-bottom:20px; }
+  .brandmark{ display:flex; align-items:center; justify-content:center; gap:10px; }
+  .brandmark svg{ width:32px; height:32px; }
+  h1{ font-family:'Newsreader',serif; font-weight:600; font-size:1.9rem; margin:0; }
+  .by-line{ color:var(--marigold); font-size:0.85rem; letter-spacing:0.03em; margin-top:2px; }
+
+  .top-controls{ display:flex; gap:8px; margin-bottom:16px; }
+  select, input[type=text]{
+    background:var(--soil-2); border:1px solid var(--line); color:var(--parchment);
+    padding:9px 12px; border-radius:6px; font-family:inherit; font-size:0.88rem;
+  }
+  select{ flex:0 0 auto; }
+  .api-row{ display:flex; gap:8px; margin-bottom:18px; }
+  .api-row input{ flex:1; min-width:0; }
+  .api-status{ font-size:0.75rem; padding:4px 0; }
+  .api-status.ok{ color:var(--leaf); }
+  .api-status.bad{ color:var(--clay); }
+
+  .tabs{ display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; margin-bottom:16px; }
+  .tab{ flex:1; text-align:center; padding:11px; cursor:pointer; background:var(--soil-2); color:var(--parchment-dim); font-size:0.9rem; font-weight:600; }
+  .tab.active{ background:var(--leaf); color:#0e1a0d; }
+
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+
+  .camera-wrap{ position:relative; }
+  video, #capturedImg, .dropzone{ width:100%; border-radius:10px; }
+  video, #capturedImg{ background:#000; display:block; }
+  canvas{ display:none; }
+  .flash{ position:absolute; inset:0; background:#fff; opacity:0; border-radius:10px; pointer-events:none; }
+  .flash.active{ animation:flash 250ms ease-out; }
+  @keyframes flash{ 0%{opacity:0.85;} 100%{opacity:0;} }
+
+  .dropzone{
+    border:1.5px dashed var(--line); border-radius:10px; padding:40px 16px; text-align:center;
+    cursor:pointer; color:var(--parchment-dim); min-height:220px; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; background:var(--soil-2); gap:8px;
+  }
+  .dropzone.has-image{ border-style:solid; padding:0; overflow:hidden; }
+  .dropzone img{ width:100%; height:260px; object-fit:cover; display:block; }
+  .dropzone input{ display:none; }
+
+  .controls{ display:flex; gap:8px; margin-top:12px; }
+  button{
+    flex:1; padding:12px; font-size:0.95rem; border-radius:8px; border:none;
+    background:var(--leaf); color:#0e1a0d; font-weight:700; cursor:pointer; font-family:inherit;
+  }
+  button.secondary{ background:transparent; border:1px solid var(--line); color:var(--parchment); font-weight:500; }
+  button.ghost-accent{ background:transparent; border:1px solid var(--marigold); color:var(--marigold); flex:none; padding:8px 14px; font-size:0.85rem; }
+  button:disabled{ opacity:0.5; cursor:default; }
+
+  #result{
+    margin-top:20px; padding:20px; border-radius:10px; background:var(--soil-2);
+    border-left:4px solid var(--leaf); display:none;
+  }
+  #result.uncertain{ border-left-color:var(--clay); }
+  .result-top{ display:flex; align-items:center; gap:14px; }
+  .cure-icon{ width:56px; height:56px; flex:none; }
+  .top-disease{ font-family:'Newsreader',serif; font-size:1.25rem; }
+  .conf-bar-track{ height:7px; background:var(--soil); border-radius:4px; margin:8px 0 4px; overflow:hidden; }
+  .conf-bar-fill{ height:100%; background:var(--leaf); width:0%; transition:width .6s ease; }
+  .conf-text{ font-size:0.78rem; color:var(--parchment-dim); }
+
+  .severity-row{ display:none; margin-top:12px; padding:8px 12px; border-left:3px solid; font-size:0.88rem; border-radius:4px; background:rgba(0,0,0,0.15); }
+  .product-row{ display:none; margin-top:12px; padding:10px 12px; border-left:3px solid var(--leaf); font-size:0.88rem; border-radius:4px; background:rgba(111,169,106,0.1); }
+  .kvk-block{ display:none; margin-top:12px; padding:12px 14px; border-left:3px solid var(--marigold); border-radius:4px; background:rgba(232,163,61,0.08); }
+  .kvk-block h5{ margin:0 0 8px; font-size:0.85rem; color:var(--marigold); }
+  .kvk-entry{ font-size:0.82rem; margin-bottom:8px; line-height:1.4; }
+  .kvk-entry b{ color:var(--parchment); }
+
+  .top3-row{ display:flex; align-items:center; gap:8px; margin-top:8px; font-size:0.78rem; color:var(--parchment-dim); }
+  .top3-name{ flex:1.4; }
+  .top3-track{ flex:2; height:5px; background:var(--soil); border-radius:3px; overflow:hidden; }
+  .top3-fill{ height:100%; background:var(--parchment-dim); }
+
+  #advice{ margin-top:14px; line-height:1.6; font-size:0.95rem; }
+  .action-row{ display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+
+  .history{ display:flex; gap:8px; overflow-x:auto; margin-top:18px; padding-bottom:4px; }
+  .history-item{ flex:0 0 auto; width:56px; text-align:center; }
+  .history-item img{ width:56px; height:56px; object-fit:cover; border-radius:6px; border:2px solid var(--line); }
+  .history-item span{ display:block; font-size:0.6rem; color:var(--parchment-dim); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  footer{ text-align:center; margin-top:40px; padding-top:20px; border-top:1px solid var(--line); color:var(--parchment-dim); font-size:0.8rem; }
+  footer b{ color:var(--marigold); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brandmark">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 2C8 6 6 10 6 13a6 6 0 0012 0c0-3-2-7-6-11z" fill="#6FA96A"/></svg>
+      <h1>Kisan Sathi</h1>
+    </div>
+    <div class="by-line">by NovaForge</div>
+  </header>
+
+  <div class="top-controls">
+    <select id="uiLang">
+      <option value="en">English</option>
+      <option value="hi">हिंदी</option>
+    </select>
+  </div>
+
+  <div class="api-row">
+    <input type="text" id="apiUrl" placeholder="Backend URL, e.g. https://your-backend.onrender.com">
+    <button class="ghost-accent" id="testApiBtn" style="flex:none;">Test</button>
+  </div>
+  <div class="api-status" id="apiStatus"></div>
+
+  <div class="tabs">
+    <div class="tab active" data-panel="camera">📷 Live camera</div>
+    <div class="tab" data-panel="upload">🖼️ Upload photo</div>
+  </div>
+
+  <div class="panel active" id="panel-camera">
+    <div class="camera-wrap">
+      <video id="video" autoplay playsinline></video>
+      <img id="capturedImg" style="display:none;">
+      <div class="flash" id="flash"></div>
+    </div>
+    <div class="controls">
+      <button id="captureBtn">📷 Capture &amp; Diagnose</button>
+      <button id="switchBtn" class="secondary" style="flex:none; width:52px;">🔄</button>
+    </div>
+    <div class="controls" id="retakeRow" style="display:none;">
+      <button id="retakeBtn" class="secondary">↺ Retake</button>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-upload">
+    <label class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" accept="image/*">
+      <span id="dropText">🖼️ Click to choose a leaf photo</span>
+      <img id="dropPreview" style="display:none;">
+    </label>
+    <div class="controls">
+      <button id="analyzeUploadBtn" disabled>Analyze photo</button>
+      <button id="changePhotoBtn" class="secondary" style="display:none; flex:none; width:auto; padding:12px 16px;">↺ Change photo</button>
+    </div>
+  </div>
+
+  <div id="result">
+    <div class="result-top">
+      <img class="cure-icon" id="cureIconImg">
+      <div style="flex:1;">
+        <div class="top-disease" id="disease"></div>
+        <div class="conf-bar-track"><div class="conf-bar-fill" id="confFill"></div></div>
+        <div class="conf-text" id="confText"></div>
+      </div>
+    </div>
+
+    <div class="severity-row" id="severityRow"></div>
+
+    <div class="product-row" id="productRow"></div>
+    <div class="kvk-block" id="kvkBlock"></div>
+
+    <div id="top3"></div>
+
+    <div id="advice" class="hi"></div>
+
+    <div class="action-row">
+      <button class="ghost-accent" id="speakBtn">🔊 Read aloud</button>
+      <button class="ghost-accent" id="reportBtn" style="border-color:var(--leaf); color:var(--leaf);">📄 Download bilingual report</button>
+    </div>
+  </div>
+
+  <div class="history" id="history"></div>
+
+  <footer>
+    Built for a university hackathon — <b>Kisan Sathi by NovaForge</b><br>
+    Offline-capable · Grad-CAM explainable · Bilingual (EN/HI)
+  </footer>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+// ---------- API URL persistence ----------
+const apiUrlInput = document.getElementById("apiUrl");
+apiUrlInput.value = localStorage.getItem("kisanSathiApiUrl") || "";
+apiUrlInput.addEventListener("change", () => {
+  localStorage.setItem("kisanSathiApiUrl", apiUrlInput.value.trim());
+});
+function apiBase(){ return apiUrlInput.value.trim().replace(/\/$/, ""); }
+
+document.getElementById("testApiBtn").addEventListener("click", async () => {
+  const statusEl = document.getElementById("apiStatus");
+  statusEl.textContent = "Checking...";
+  statusEl.className = "api-status";
+  if (!apiBase()) { statusEl.textContent = "Enter a backend URL first."; statusEl.className = "api-status bad"; return; }
+  try {
+    const r = await fetch(apiBase() + "/health");
+    const data = await r.json();
+    statusEl.textContent = "✓ Connected — " + JSON.stringify(data);
+    statusEl.className = "api-status ok";
+  } catch (err) {
+    statusEl.textContent = "✗ Could not reach backend: " + err.message;
+    statusEl.className = "api-status bad";
+  }
+});
+
+// ---------- UI translations (chrome text, not diagnosis content) ----------
+const UI = {
+  en: { capture:"📷 Capture & Diagnose", analyze:"Analyze photo", drop:"🖼️ Click to choose a leaf photo", retake:"↺ Retake", speak:"🔊 Read aloud", report:"📄 Download bilingual report" },
+  hi: { capture:"📷 फोटो लें और जांचें", analyze:"तस्वीर की जांच करें", drop:"🖼️ पत्ती की फोटो चुनने के लिए क्लिक करें", retake:"↺ फिर से लें", speak:"🔊 सुनें", report:"📄 रिपोर्ट डाउनलोड करें" }
+};
+let uiLang = "en";
+document.getElementById("uiLang").addEventListener("change", e => {
+  uiLang = e.target.value;
+  const t = UI[uiLang];
+  captureBtn.textContent = t.capture;
+  document.getElementById("analyzeUploadBtn").textContent = t.analyze;
+  document.getElementById("dropText").textContent = t.drop;
+  retakeBtn.textContent = t.retake;
+  document.getElementById("speakBtn").textContent = t.speak;
+  document.getElementById("reportBtn").textContent = t.report;
+});
+
+// ---------- Tabs ----------
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    tab.classList.add("active");
+    document.getElementById("panel-" + tab.dataset.panel).classList.add("active");
+  });
+});
+
+// ---------- Camera ----------
+const video = document.getElementById("video");
+const capturedImg = document.getElementById("capturedImg");
+const canvas = document.getElementById("canvas");
+const flash = document.getElementById("flash");
+const captureBtn = document.getElementById("captureBtn");
+const switchBtn = document.getElementById("switchBtn");
+const retakeRow = document.getElementById("retakeRow");
+const retakeBtn = document.getElementById("retakeBtn");
+const resultDiv = document.getElementById("result");
+let currentFacing = "environment";
+let currentStream = null;
+
+async function startCamera(facingMode){
+  if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+  try{
+    currentStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
+    video.srcObject = currentStream;
+    video.style.display = "block";
+    capturedImg.style.display = "none";
+  }catch(err){
+    console.warn("Camera unavailable:", err.message);
+  }
+}
+startCamera(currentFacing);
+switchBtn.addEventListener("click", () => {
+  currentFacing = currentFacing === "environment" ? "user" : "environment";
+  startCamera(currentFacing);
+});
+retakeBtn.addEventListener("click", () => {
+  retakeRow.style.display = "none";
+  captureBtn.style.display = "block";
+  resultDiv.style.display = "none";
+  startCamera(currentFacing);
+});
+
+// ---------- Upload ----------
+const dropzone = document.getElementById("dropzone");
+const fileInput = document.getElementById("fileInput");
+const analyzeUploadBtn = document.getElementById("analyzeUploadBtn");
+let uploadedBlob = null;
+
+fileInput.addEventListener("change", e => {
+  const file = e.target.files[0]; if(!file) return;
+  uploadedBlob = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    dropzone.classList.add("has-image");
+    document.getElementById("dropText").style.display = "none";
+    const preview = document.getElementById("dropPreview");
+    preview.src = ev.target.result;
+    preview.style.display = "block";
+    analyzeUploadBtn.disabled = false;
+    document.getElementById("changePhotoBtn").style.display = "block";
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById("changePhotoBtn").addEventListener("click", () => {
+  uploadedBlob = null;
+  fileInput.value = "";  // reset so re-selecting the SAME file still fires 'change'
+  dropzone.classList.remove("has-image");
+  document.getElementById("dropText").style.display = "block";
+  document.getElementById("dropPreview").style.display = "none";
+  document.getElementById("changePhotoBtn").style.display = "none";
+  analyzeUploadBtn.disabled = true;
+  resultDiv.style.display = "none";
+});
+
+// ---------- Cure icons (drawn on canvas, no external images -- avoids
+// copyright issues with scraped product photos and keeps this fully
+// offline-safe) ----------
+function drawCureIcon(category){
+  const c = document.createElement("canvas");
+  c.width = 120; c.height = 120;
+  const ctx = c.getContext("2d");
+  const colors = { fungicide:"#6FA96A", bactericide:"#E8A33D", insecticide:"#C97064", remove_no_cure:"#C97064", healthy:"#6FA96A" };
+  const col = colors[category] || "#C9C6B8";
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 5; ctx.lineCap = "round";
+
+  if (category === "fungicide" || category === "bactericide") {
+    // spray bottle
+    ctx.beginPath(); ctx.roundRect(40, 45, 35, 55, 6); ctx.fill();
+    ctx.fillRect(52, 25, 12, 22);
+    ctx.beginPath(); ctx.moveTo(64,25); ctx.lineTo(85,15); ctx.stroke();
+    ctx.beginPath(); ctx.arc(90,12,3,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(96,20,2.5,0,7); ctx.fill();
+  } else if (category === "insecticide") {
+    // simple bug
+    ctx.beginPath(); ctx.ellipse(60,65,22,28,0,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(60,32,12,0,7); ctx.fill();
+    for (let i=-1;i<=1;i++){
+      ctx.beginPath(); ctx.moveTo(60+i*18,55); ctx.lineTo(60+i*32,45); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(60+i*18,75); ctx.lineTo(60+i*32,85); ctx.stroke();
+    }
+  } else if (category === "healthy") {
+    ctx.beginPath(); ctx.arc(60,60,42,0,7); ctx.lineWidth=6; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(42,60); ctx.lineTo(55,75); ctx.lineTo(82,42); ctx.stroke();
+  } else {
+    // remove / no cure -- prohibition circle
+    ctx.beginPath(); ctx.arc(60,60,42,0,7); ctx.lineWidth=6; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(32,32); ctx.lineTo(88,88); ctx.stroke();
+  }
+  return c.toDataURL("image/png");
+}
+
+// ---------- Real KVK contact data (verified via Google Places) ----------
+const KVK_CONTACTS = [
+  { name: "Krishi Vigyan Kendra, Ambala", address: "Village Mithapur, Ambala Engineering College Road, Phalail Majra, Haryana 133104", phone: "+91 171 282 2522", hours: "Mon–Sat, 9:00 AM – 4:00 PM" },
+  { name: "Krishi Vigyan Kendra CCSHAU, Ambala City", address: "Manav Chowk, Ambala, Haryana 134003", phone: null, hours: "Open 7 days, 9:00 AM – 4:30 PM" }
+];
+
+// ---------- Shared result rendering ----------
+let lastAdviceText = "", lastAdviceLangCode = "en", lastReport = null;
+
+function renderResult(data, photoDataUrl, heatmapDataUrl){
+  document.getElementById("disease").textContent = data.disease ?? (uiLang === "hi" ? "अनिश्चित" : "Uncertain");
+  document.getElementById("confText").textContent = (data.confidence*100).toFixed(1) + "% " + (uiLang==="hi"?"विश्वास":"confidence");
+  document.getElementById("confFill").style.width = "0%";
+  requestAnimationFrame(()=>{ document.getElementById("confFill").style.width = (data.confidence*100)+"%"; });
+
+  const cureImg = document.getElementById("cureIconImg");
+  cureImg.src = drawCureIcon(data.cure_category || "remove_no_cure");
+
+  const sevRow = document.getElementById("severityRow");
+  if (data.severity_label){
+    const colorMap = { Mild:"#6FA96A", Moderate:"#E8A33D", Severe:"#C97064" };
+    sevRow.style.display = "block";
+    sevRow.style.borderLeftColor = colorMap[data.severity_label] || "#C9C6B8";
+    sevRow.innerHTML = `<b>${uiLang==="hi"?"गंभीरता":"Severity"}:</b> ${data.severity_label} (${data.severity_pct}%)`;
+  } else {
+    sevRow.style.display = "none";
+  }
+
+  const productRow = document.getElementById("productRow");
+  const kvkBlock = document.getElementById("kvkBlock");
+  if (data.no_cure) {
+    productRow.style.display = "none";
+    kvkBlock.style.display = "block";
+    const heading = uiLang === "hi" ? "इस रोग का कोई इलाज नहीं है — नज़दीकी विशेषज्ञ से संपर्क करें" : "No cure exists for this disease — contact a nearby expert";
+    kvkBlock.innerHTML = `<h5>${heading}</h5>` + KVK_CONTACTS.map(k =>
+      `<div class="kvk-entry"><b>${k.name}</b><br>${k.address}${k.phone ? "<br>📞 " + k.phone : ""}<br>${k.hours}</div>`
+    ).join("");
+  } else if (data.product) {
+    kvkBlock.style.display = "none";
+    productRow.style.display = "block";
+    const label = uiLang === "hi" ? "सुझाया गया उपचार" : "Suggested treatment";
+    productRow.innerHTML = `<b>${label}:</b> ${data.product}`;
+  } else {
+    productRow.style.display = "none";
+    kvkBlock.style.display = "none";
+  }
+
+  const top3Div = document.getElementById("top3");
+  top3Div.innerHTML = "";
+  (data.top3||[]).forEach(entry=>{
+    const row = document.createElement("div");
+    row.className = "top3-row";
+    row.innerHTML = `<span class="top3-name">${entry.disease}</span><div class="top3-track"><div class="top3-fill" style="width:${entry.confidence*100}%"></div></div><span>${(entry.confidence*100).toFixed(0)}%</span>`;
+    top3Div.appendChild(row);
+  });
+
+  const adviceText = uiLang === "hi" ? data.advice_hi : data.advice_en;
+  document.getElementById("advice").textContent = adviceText;
+  lastAdviceText = adviceText;
+  lastAdviceLangCode = uiLang;
+
+  resultDiv.className = data.disease ? "" : "uncertain";
+  resultDiv.style.display = "block";
+
+  lastReport = {
+    photoDataUrl, heatmapDataUrl,
+    disease: data.disease ?? "Uncertain",
+    confidence: data.confidence,
+    severity_label: data.severity_label,
+    severity_pct: data.severity_pct,
+    advice_en: data.advice_en, advice_hi: data.advice_hi,
+    product: data.product, no_cure: data.no_cure,
+  };
+
+  const hist = document.getElementById("history");
+  const item = document.createElement("div");
+  item.className = "history-item";
+  item.innerHTML = `<img src="${photoDataUrl}"><span>${data.disease||"uncertain"}</span>`;
+  hist.prepend(item);
+}
+
+async function diagnose(blob, frameDataUrl){
+  if (!apiBase()){ alert(uiLang==="hi" ? "पहले बैकएंड URL डालें और Test दबाएं।" : "Enter a backend URL and press Test first."); return; }
+
+  const formData = new FormData(); formData.append("file", blob, "capture.jpg");
+  const jsonResp = await fetch(`${apiBase()}/predict?lang=${uiLang}`, { method:"POST", body: formData });
+  const data = await jsonResp.json();
+
+  const heatmapForm = new FormData(); heatmapForm.append("file", blob, "capture.jpg");
+  const heatmapResp = await fetch(`${apiBase()}/predict-with-heatmap?lang=${uiLang}`, { method:"POST", body: heatmapForm });
+  const heatmapBlob = await heatmapResp.blob();
+  const heatmapDataUrl = await new Promise(res=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(heatmapBlob); });
+
+  renderResult(data, frameDataUrl, heatmapDataUrl);
+}
+
+captureBtn.addEventListener("click", async () => {
+  flash.classList.add("active"); setTimeout(()=>flash.classList.remove("active"),250);
+  if (navigator.vibrate) navigator.vibrate(40);
+  captureBtn.disabled = true; captureBtn.textContent = uiLang==="hi" ? "जांच हो रही है..." : "Diagnosing...";
+
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  canvas.getContext("2d").drawImage(video,0,0);
+  const frameDataUrl = canvas.toDataURL("image/jpeg",0.85);
+  capturedImg.src = frameDataUrl; capturedImg.style.display="block"; video.style.display="none";
+  captureBtn.style.display="none"; retakeRow.style.display="flex";
+
+  canvas.toBlob(async (blob)=>{
+    try{ await diagnose(blob, frameDataUrl); }
+    catch(err){ resultDiv.style.display="block"; resultDiv.textContent="Error: "+err.message; }
+    finally{ captureBtn.disabled=false; captureBtn.textContent = UI[uiLang].capture; }
+  }, "image/jpeg", 0.92);
+});
+
+document.getElementById("analyzeUploadBtn").addEventListener("click", async () => {
+  if (!uploadedBlob) return;
+  const btn = document.getElementById("analyzeUploadBtn");
+  btn.disabled = true; btn.textContent = uiLang==="hi" ? "जांच हो रही है..." : "Analyzing...";
+  const frameDataUrl = await new Promise(res=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(uploadedBlob); });
+  try{ await diagnose(uploadedBlob, frameDataUrl); }
+  catch(err){ resultDiv.style.display="block"; resultDiv.textContent="Error: "+err.message; }
+  finally{ btn.disabled=false; btn.textContent = UI[uiLang].analyze; }
+});
+
+// ---------- Read aloud ----------
+document.getElementById("speakBtn").addEventListener("click", () => {
+  if (!("speechSynthesis" in window) || !lastAdviceText) return;
+  speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(lastAdviceText);
+  utter.lang = lastAdviceLangCode === "hi" ? "hi-IN" : "en-US";
+  speechSynthesis.speak(utter);
+});
+
+// ---------- Bilingual PDF report ----------
+function wrapCanvasText(ctx, text, maxWidthPx){
+  const words = text.split(" ");
+  let lines = [], current = "";
+  for (const word of words){
+    const test = current ? current + " " + word : word;
+    if (ctx.measureText(test).width > maxWidthPx && current){ lines.push(current); current = word; }
+    else { current = test; }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+async function renderDevanagariToImage(text, widthPx = 1000, fontPx = 30){
+  // jsPDF's own text renderer places one glyph per character with no
+  // script shaping -- it cannot correctly form Devanagari conjuncts or
+  // reposition vowel signs (matras), even with the right font embedded.
+  // The browser's own text engine already shapes this correctly (that's
+  // why it displays right on-screen), so we render the Hindi text onto
+  // a canvas here and drop that canvas into the PDF as an image instead
+  // of asking jsPDF to lay out the characters itself.
+  await document.fonts.load(`${fontPx}px "IBM Plex Sans Devanagari"`);
+  await document.fonts.ready;
+
+  const measure = document.createElement("canvas").getContext("2d");
+  measure.font = `${fontPx}px "IBM Plex Sans Devanagari"`;
+  const lines = wrapCanvasText(measure, text, widthPx - 20);
+
+  const lineHeight = fontPx * 1.5;
+  const canvas = document.createElement("canvas");
+  canvas.width = widthPx;
+  canvas.height = Math.max(lines.length, 1) * lineHeight + 20;
+
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#000000";
+  ctx.font = `${fontPx}px "IBM Plex Sans Devanagari"`;
+  ctx.textBaseline = "top";
+  lines.forEach((line, i) => ctx.fillText(line, 10, 10 + i * lineHeight));
+
+  return { dataUrl: canvas.toDataURL("image/png"), widthPx: canvas.width, heightPx: canvas.height };
+}
+
+document.getElementById("reportBtn").addEventListener("click", async () => {
+  if (!lastReport) return;
+  const btn = document.getElementById("reportBtn");
+  btn.disabled = true; btn.textContent = "Generating...";
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    doc.setFontSize(18); doc.text("Kisan Sathi — by NovaForge", 14, 18);
+    doc.setFontSize(10); doc.setTextColor(120);
+    doc.text("Diagnosis report — " + new Date().toLocaleString(), 14, 25);
+
+    doc.addImage(lastReport.photoDataUrl, "JPEG", 14, 34, 85, 62);
+    if (lastReport.heatmapDataUrl) doc.addImage(lastReport.heatmapDataUrl, "PNG", 105, 34, 85, 62);
+    doc.setFontSize(9); doc.setTextColor(120);
+    doc.text("Captured photo", 14, 99);
+    doc.text("Grad-CAM heatmap (model's focus area)", 105, 99);
+
+    doc.setFontSize(15); doc.setTextColor(0);
+    doc.text(`Diagnosis: ${lastReport.disease}`, 14, 114);
+    doc.setFontSize(11);
+    doc.text(`Confidence: ${(lastReport.confidence * 100).toFixed(1)}%`, 14, 122);
+    let yOffset = 129;
+    if (lastReport.severity_label){
+      doc.text(`Severity: ${lastReport.severity_label} (${lastReport.severity_pct}% of leaf area)`, 14, yOffset);
+      yOffset += 7;
+    }
+    if (lastReport.no_cure) {
+      doc.setTextColor(180, 90, 60);
+      doc.text("No cure exists for this disease -- contact a nearby expert:", 14, yOffset);
+      doc.setTextColor(0);
+      yOffset += 7;
+      KVK_CONTACTS.forEach(k => {
+        doc.setFontSize(10);
+        doc.text(`${k.name}`, 14, yOffset); yOffset += 5;
+        doc.setTextColor(100);
+        doc.text(`${k.address}${k.phone ? "  |  " + k.phone : ""}`, 14, yOffset); yOffset += 5;
+        doc.text(`${k.hours}`, 14, yOffset); yOffset += 8;
+        doc.setTextColor(0);
+      });
+    } else if (lastReport.product) {
+      doc.setFontSize(11);
+      doc.text(`Suggested treatment: ${lastReport.product}`, 14, yOffset);
+      yOffset += 7;
+    }
+
+    let y = yOffset + 8;
+    doc.setFontSize(13); doc.setTextColor(0);
+    doc.text("Recommended action — English", 14, y);
+    doc.setFontSize(10);
+    const enLines = doc.splitTextToSize(lastReport.advice_en || "", 180);
+    doc.text(enLines, 14, y + 7);
+    y = y + 7 + enLines.length * 5 + 12;
+
+    doc.setFontSize(13); doc.setTextColor(0);
+    doc.text("Recommended action — Hindi", 14, y);
+
+    const hiRender = await renderDevanagariToImage(lastReport.advice_hi || "", 1000, 30);
+    const mmPerPx = 180 / hiRender.widthPx;
+    const hiHeightMM = hiRender.heightPx * mmPerPx;
+    doc.addImage(hiRender.dataUrl, "PNG", 14, y + 6, 180, hiHeightMM);
+
+    doc.setFontSize(8); doc.setTextColor(150);
+    doc.text("Generated by Kisan Sathi — an offline-capable AI plant disease assistant. Team NovaForge.", 14, 285);
+
+    doc.save(`kisan-sathi-report-${Date.now()}.pdf`);
+  } catch (err) {
+    alert("Report generation failed: " + err.message);
+    console.error(err);
+  } finally {
+    btn.disabled = false; btn.textContent = UI[uiLang].report;
+  }
+});
+</script>
+</body>
+</html>
